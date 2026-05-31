@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TC 수행 시간 분석</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#060912;
+  --surface:#0d1117;
+  --border:#1e2a3a;
+  --accent:#3b82f6;
+  --accent2:#06b6d4;
+  --green:#22c55e;
+  --yellow:#f59e0b;
+  --text:#e2e8f0;
+  --muted:#64748b;
+  --font:'Noto Sans KR',system-ui,sans-serif;
+  --mono:'JetBrains Mono',monospace;
+}
+html,body{
+  min-height:100vh;
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--font);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:40px 20px;
+}
+
+/* ── 페이지 래퍼 ── */
+.page{
+  width:min(760px,100%);
+  display:none;
+  opacity:0;
+  transform:translateY(18px);
+  transition:opacity .5s ease, transform .5s ease;
+}
+.page.active{
+  display:block;
+}
+.page.visible{
+  opacity:1;
+  transform:translateY(0);
+}
+
+/* ── 공통 카드 ── */
+.card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:36px 40px;
+}
+
+/* ── 페이지 인디케이터 ── */
+.page-indicator{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  margin-bottom:24px;
+}
+.dot{
+  width:8px;height:8px;
+  border-radius:50%;
+  background:var(--border);
+  transition:background .3s, transform .3s;
+}
+.dot.active{
+  background:var(--accent);
+  transform:scale(1.3);
+}
+
+/* ── 네비게이션 버튼 ── */
+.nav-row{
+  display:flex;
+  justify-content:flex-end;
+  margin-top:28px;
+}
+.btn-nav{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:10px 24px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  border:none;
+  border-radius:8px;
+  color:#fff;
+  font-size:13px;
+  font-weight:500;
+  cursor:pointer;
+  font-family:var(--font);
+  letter-spacing:.03em;
+  transition:transform .15s, box-shadow .15s;
+}
+.btn-nav:hover{
+  transform:translateY(-2px);
+  box-shadow:0 8px 24px rgba(59,130,246,.3);
+}
+.btn-nav svg{
+  width:14px;height:14px;
+}
+
+/* ════════════════════════════
+   PAGE 1 — 타임라인
+════════════════════════════ */
+.p1-badge{
+  font-family:var(--mono);
+  font-size:10px;
+  font-weight:600;
+  letter-spacing:.08em;
+  padding:3px 10px;
+  border-radius:20px;
+  background:rgba(59,130,246,.15);
+  color:var(--accent2);
+  border:1px solid rgba(59,130,246,.2);
+  display:inline-block;
+  margin-bottom:10px;
+}
+.p1-title{font-size:17px;font-weight:700;margin-bottom:4px;}
+.p1-sub{font-size:13px;color:var(--muted);margin-bottom:36px;}
+
+/* 타임라인 가로 */
+.timeline{
+  position:relative;
+  display:flex;
+  align-items:flex-start;
+  gap:0;
+}
+
+/* 연결선 */
+.timeline::before{
+  content:'';
+  position:absolute;
+  top:22px;
+  left:22px;
+  right:22px;
+  height:2px;
+  background:var(--border);
+  z-index:0;
+}
+
+.tl-item{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  position:relative;
+  z-index:1;
+  opacity:0;
+  transform:translateY(12px);
+  transition:opacity .5s ease, transform .5s ease;
+}
+.tl-item.show{opacity:1;transform:translateY(0);}
+
+/* 아이콘 원 */
+.tl-icon{
+  width:44px;height:44px;
+  border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;
+  border:2px solid var(--border);
+  background:var(--surface);
+  margin-bottom:14px;
+  position:relative;
+}
+.tl-icon::after{
+  content:'';
+  position:absolute;inset:-4px;
+  border-radius:50%;
+  border:1px solid transparent;
+}
+.tl-item.first .tl-icon{
+  border-color:var(--yellow);
+  box-shadow:0 0 16px rgba(245,158,11,.2);
+}
+.tl-item.second .tl-icon{
+  border-color:var(--accent);
+  box-shadow:0 0 16px rgba(59,130,246,.2);
+}
+.tl-item.stable .tl-icon{
+  border-color:var(--green);
+  box-shadow:0 0 16px rgba(34,197,94,.2);
+}
+
+.tl-label{
+  font-size:13px;font-weight:700;
+  margin-bottom:12px;
+  text-align:center;
+}
+.tl-item.first .tl-label{color:var(--yellow);}
+.tl-item.second .tl-label{color:var(--accent2);}
+.tl-item.stable .tl-label{color:var(--green);}
+
+/* 태그 목록 */
+.tl-tags{
+  display:flex;flex-direction:column;
+  align-items:center;
+  gap:7px;
+  width:90%;
+}
+.tl-tag{
+  width:100%;
+  padding:7px 10px;
+  border-radius:8px;
+  font-size:12px;
+  text-align:center;
+  line-height:1.4;
+  background:var(--bg);
+  border:1px solid var(--border);
+  color:var(--text);
+}
+.tl-item.first .tl-tag{border-color:rgba(245,158,11,.25);background:rgba(245,158,11,.06);}
+.tl-item.second .tl-tag{border-color:rgba(6,182,212,.25);background:rgba(6,182,212,.06);}
+.tl-item.stable .tl-tag{border-color:rgba(34,197,94,.25);background:rgba(34,197,94,.06);}
+
+/* 화살표 구분자 */
+.tl-arrow{
+  flex:0 0 auto;
+  color:var(--muted);
+  margin-top:18px;
+  font-size:18px;
+  opacity:.4;
+}
+
+/* ════════════════════════════
+   PAGE 2 — 그래프
+════════════════════════════ */
+.p2-badge{
+  font-family:var(--mono);
+  font-size:10px;
+  font-weight:600;
+  letter-spacing:.08em;
+  padding:3px 10px;
+  border-radius:20px;
+  background:rgba(59,130,246,.15);
+  color:var(--accent2);
+  border:1px solid rgba(59,130,246,.2);
+  display:inline-block;
+  margin-bottom:10px;
+}
+.p2-title{font-size:17px;font-weight:700;margin-bottom:4px;}
+.p2-sub{font-size:13px;color:var(--muted);margin-bottom:20px;}
+
+.meta-row{
+  display:flex;align-items:center;gap:16px;
+  margin-bottom:24px;flex-wrap:wrap;
+}
+.reduction-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(34,197,94,.12);color:var(--green);
+  font-size:12px;font-weight:600;padding:5px 14px;
+  border-radius:20px;border:1px solid rgba(34,197,94,.2);
+  font-family:var(--mono);
+}
+.legend{display:flex;gap:16px;flex-wrap:wrap;}
+.legend-item{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);}
+.legend-dot{width:9px;height:9px;border-radius:50%;background:var(--accent);}
+.legend-stable{width:18px;height:9px;border-radius:3px;background:rgba(34,197,94,.35);}
+
+.chart-wrap{position:relative;width:100%;}
+canvas{display:block;width:100% !important;}
+
+.divider{height:1px;background:var(--border);margin:24px 0;}
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.stat-card{
+  background:var(--bg);border:1px solid var(--border);
+  border-radius:10px;padding:14px 16px;text-align:center;
+}
+.stat-label{font-size:11px;color:var(--muted);margin-bottom:6px;}
+.stat-value{font-family:var(--mono);font-size:13px;font-weight:600;}
+.stat-value.high{color:var(--yellow)}
+.stat-value.low{color:var(--accent2)}
+.stat-value.green{color:var(--green)}
+
+/* 뒤로 버튼 */
+.nav-row-p2{
+  display:flex;
+  justify-content:flex-start;
+  margin-top:28px;
+}
+.btn-back{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:10px 20px;
+  background:transparent;
+  border:1px solid var(--border);
+  border-radius:8px;
+  color:var(--muted);
+  font-size:13px;cursor:pointer;
+  font-family:var(--font);
+  transition:border-color .15s, color .15s;
+}
+.btn-back:hover{border-color:var(--accent);color:var(--text);}
+</style>
+</head>
+<body>
+
+<!-- ══ PAGE 1 ══ -->
+<div class="page" id="page1">
+  <div class="page-indicator">
+    <div class="dot active" id="dot1"></div>
+    <div class="dot" id="dot2"></div>
+  </div>
+  <div class="card">
+    <span class="p1-badge">WHY SO LONG?</span>
+    <div class="p1-title">첫 수행이 오래 걸리는 이유</div>
+    <div class="p1-sub">수행 단계별 소요 원인 분석</div>
+
+    <div class="timeline">
+
+      <div class="tl-item first" id="tl1">
+        <div class="tl-icon">✍️</div>
+        <div class="tl-label">첫 수행</div>
+        <div class="tl-tags">
+          <div class="tl-tag">스크립트 작성</div>
+          <div class="tl-tag">디버깅 및 오류 수정</div>
+          <div class="tl-tag">환경 세팅 확인</div>
+          <div class="tl-tag">수동 검증 병행</div>
+        </div>
+      </div>
+
+      <div class="tl-arrow">›</div>
+
+      <div class="tl-item second" id="tl2">
+        <div class="tl-icon">♻️</div>
+        <div class="tl-label">재수행</div>
+        <div class="tl-tags">
+          <div class="tl-tag">스크립트 재사용</div>
+          <div class="tl-tag">초기 캐시 적용</div>
+          <div class="tl-tag">일부 재검증 필요</div>
+        </div>
+      </div>
+
+      <div class="tl-arrow">›</div>
+
+      <div class="tl-item stable" id="tl3">
+        <div class="tl-icon">⚡</div>
+        <div class="tl-label">이후 수행</div>
+        <div class="tl-tags">
+          <div class="tl-tag">완전 자동화</div>
+          <div class="tl-tag">캐시 완전 활용</div>
+          <div class="tl-tag">안정적 반복 실행</div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="nav-row">
+      <button class="btn-nav" onclick="goPage2()">
+        결과 그래프 보기
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE 2 ══ -->
+<div class="page" id="page2">
+  <div class="page-indicator">
+    <div class="dot" id="dot1b"></div>
+    <div class="dot active" id="dot2b"></div>
+  </div>
+  <div class="card">
+    <span class="p2-badge">PERFORMANCE</span>
+    <div class="p2-title">TC 수행 시간 분석</div>
+    <div class="p2-sub">수행 횟수에 따른 실행 시간 변화 추이</div>
+
+    <div class="meta-row">
+      <div class="legend">
+        <span class="legend-item"><span class="legend-dot"></span>수행 시간</span>
+        <span class="legend-item"><span class="legend-stable"></span>안정화 구간</span>
+      </div>
+      <div class="reduction-badge">↘ 첫 수행 → 재수행 &nbsp;95%+ 단축</div>
+    </div>
+
+    <div class="chart-wrap">
+      <canvas id="c"></canvas>
+    </div>
+
+    <div class="divider"></div>
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-label">첫 수행</div><div class="stat-value high">매우 높음</div></div>
+      <div class="stat-card"><div class="stat-label">재수행</div><div class="stat-value low">대폭 단축</div></div>
+      <div class="stat-card"><div class="stat-label">이후 수행</div><div class="stat-value green">안정화</div></div>
+    </div>
+
+    <div class="nav-row-p2">
+      <button class="btn-back" onclick="goPage1()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        이전으로
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── 페이지 전환 ── */
+let chartDrawn = false;
+
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>{
+    p.classList.remove('active','visible');
+  });
+  const pg = document.getElementById(id);
+  pg.classList.add('active');
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{ pg.classList.add('visible'); });
+  });
+}
+
+function goPage2(){
+  showPage('page2');
+  document.getElementById('dot1b').classList.remove('active');
+  document.getElementById('dot2b').classList.add('active');
+  if(!chartDrawn){ initChart(); chartDrawn=true; }
+}
+
+function goPage1(){
+  showPage('page1');
+  document.getElementById('dot1').classList.add('active');
+  document.getElementById('dot2').classList.remove('active');
+}
+
+/* ── PAGE 1 타임라인 아이템 등장 ── */
+function animateTimeline(){
+  ['tl1','tl2','tl3'].forEach((id,i)=>{
+    setTimeout(()=>{
+      document.getElementById(id).classList.add('show');
+    }, 300 + i*180);
+  });
+}
+
+/* ── 키보드 화살표 ── */
+document.addEventListener('keydown', e => {
+  if(e.key === 'ArrowRight' || e.key === 'ArrowDown'){
+    if(document.getElementById('page1').classList.contains('active')) goPage2();
+  }
+  if(e.key === 'ArrowLeft' || e.key === 'ArrowUp'){
+    if(document.getElementById('page2').classList.contains('active')) goPage1();
+  }
+});
+
+/* ── 초기 로드 ── */
+showPage('page1');
+setTimeout(animateTimeline, 200);
+
+/* ════════════════════════
+   CHART (Canvas 직접 그리기)
+════════════════════════ */
+function initChart(){
+  const LABELS = ['첫 수행','재수행','3회','4회','5회'];
+  const RAW    = [460, 19.5, 17, 16, 15.5];
+
+  const canvas = document.getElementById('c');
+  const DPR = window.devicePixelRatio || 1;
+  const W_CSS = canvas.parentElement.clientWidth;
+  const H_CSS = 300;
+  canvas.width  = W_CSS * DPR;
+  canvas.height = H_CSS * DPR;
+  canvas.style.height = H_CSS + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  const PAD = {top:20, right:20, bottom:36, left:36};
+  const CW = W_CSS - PAD.left - PAD.right;
+  const CH = H_CSS - PAD.top  - PAD.bottom;
+
+  const LOG_MIN = Math.log10(12);
+  const LOG_MAX = Math.log10(500);
+  function toY(v){ return PAD.top + CH*(1-(Math.log10(v)-LOG_MIN)/(LOG_MAX-LOG_MIN)); }
+  function toX(i){ return PAD.left + (i/(RAW.length-1))*CW; }
+
+  const PTS = RAW.map((v,i)=>({x:toX(i),y:toY(v)}));
+
+  function ctrlPts(pts){
+    const cp=[];
+    for(let i=0;i<pts.length-1;i++){
+      const p0=pts[Math.max(i-1,0)], p1=pts[i], p2=pts[i+1], p3=pts[Math.min(i+2,pts.length-1)];
+      const t=0.38;
+      cp.push({
+        cp1x:p1.x+(p2.x-p0.x)*t/2, cp1y:p1.y+(p2.y-p0.y)*t/2,
+        cp2x:p2.x-(p3.x-p1.x)*t/2, cp2y:p2.y-(p3.y-p1.y)*t/2,
+      });
+    }
+    return cp;
+  }
+  const CP = ctrlPts(PTS);
+
+  function lerp(a,b,t){return{x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t}}
+
+  function buildPath(pct){
+    ctx.beginPath();
+    ctx.moveTo(PTS[0].x,PTS[0].y);
+    for(let i=0;i<CP.length;i++){
+      const seg=i/CP.length, segEnd=(i+1)/CP.length;
+      if(pct<=seg) break;
+      if(pct>=segEnd){
+        ctx.bezierCurveTo(CP[i].cp1x,CP[i].cp1y,CP[i].cp2x,CP[i].cp2y,PTS[i+1].x,PTS[i+1].y);
+      } else {
+        const t=(pct-seg)/(segEnd-seg);
+        const p0=PTS[i],p3=PTS[i+1];
+        const c1={x:CP[i].cp1x,y:CP[i].cp1y},c2={x:CP[i].cp2x,y:CP[i].cp2y};
+        const q0=lerp(p0,c1,t),q1=lerp(c1,c2,t),q2=lerp(c2,p3,t);
+        const r0=lerp(q0,q1,t),r1=lerp(q1,q2,t);
+        const s=lerp(r0,r1,t);
+        ctx.bezierCurveTo(q0.x,q0.y,r0.x,r0.y,s.x,s.y);
+      }
+    }
+  }
+
+  function tipAt(pct){
+    if(pct<=0) return PTS[0];
+    const segIdx=Math.min(Math.floor(pct*CP.length),CP.length-1);
+    const seg=segIdx/CP.length, segEnd=(segIdx+1)/CP.length;
+    const t=(pct-seg)/(segEnd-seg);
+    const p0=PTS[segIdx],p3=PTS[segIdx+1];
+    const c1={x:CP[segIdx].cp1x,y:CP[segIdx].cp1y},c2={x:CP[segIdx].cp2x,y:CP[segIdx].cp2y};
+    const q0=lerp(p0,c1,t),q1=lerp(c1,c2,t),q2=lerp(c2,p3,t);
+    const r0=lerp(q0,q1,t),r1=lerp(q1,q2,t);
+    return lerp(r0,r1,t);
+  }
+
+  function draw(pct){
+    ctx.clearRect(0,0,W_CSS,H_CSS);
+
+    /* 안정화 zone */
+    ctx.fillStyle='rgba(34,197,94,0.10)';
+    ctx.fillRect(PAD.left, toY(22), CW, toY(13)-toY(22));
+
+    /* Y 레이블 */
+    ctx.save();
+    ctx.translate(14, PAD.top+CH/2);
+    ctx.rotate(-Math.PI/2);
+    ctx.font='11px JetBrains Mono,monospace';
+    ctx.fillStyle='#64748b';
+    ctx.textAlign='center';
+    ctx.fillText('시간',0,0);
+    ctx.restore();
+
+    /* X 레이블 */
+    ctx.font='12px Noto Sans KR,sans-serif';
+    ctx.fillStyle='#64748b';
+    ctx.textAlign='center';
+    LABELS.forEach((l,i)=> ctx.fillText(l,toX(i),H_CSS-8));
+
+    /* fill */
+    if(pct>0){
+      buildPath(pct);
+      const grad=ctx.createLinearGradient(0,PAD.top,0,PAD.top+CH);
+      grad.addColorStop(0,'rgba(59,130,246,0.22)');
+      grad.addColorStop(1,'rgba(59,130,246,0.01)');
+      const tip=tipAt(pct);
+      ctx.lineTo(tip.x,PAD.top+CH);
+      ctx.lineTo(PTS[0].x,PAD.top+CH);
+      ctx.closePath();
+      ctx.fillStyle=grad;
+      ctx.fill();
+    }
+
+    /* line */
+    if(pct>0){
+      buildPath(pct);
+      ctx.strokeStyle='#3b82f6';
+      ctx.lineWidth=2.5;
+      ctx.lineJoin='round';
+      ctx.lineCap='round';
+      ctx.stroke();
+    }
+
+    /* dots */
+    const passedCount=Math.floor(pct*(PTS.length-1))+1;
+    for(let i=0;i<Math.min(passedCount,PTS.length);i++){
+      const alpha=i<passedCount-1?1:Math.min(1,pct*(PTS.length-1)-(i-1));
+      ctx.globalAlpha=alpha;
+      ctx.beginPath(); ctx.arc(PTS[i].x,PTS[i].y,6,0,Math.PI*2);
+      ctx.fillStyle='#0d1117'; ctx.fill();
+      ctx.beginPath(); ctx.arc(PTS[i].x,PTS[i].y,6,0,Math.PI*2);
+      ctx.strokeStyle='#3b82f6'; ctx.lineWidth=2.5; ctx.stroke();
+      ctx.beginPath(); ctx.arc(PTS[i].x,PTS[i].y,3,0,Math.PI*2);
+      ctx.fillStyle='#3b82f6'; ctx.fill();
+      ctx.globalAlpha=1;
+    }
+
+    /* 글로우 팁 */
+    if(pct>0&&pct<1){
+      const tip=tipAt(pct);
+      ctx.beginPath(); ctx.arc(tip.x,tip.y,5,0,Math.PI*2);
+      ctx.fillStyle='#06b6d4';
+      ctx.shadowColor='#06b6d4'; ctx.shadowBlur=12;
+      ctx.fill(); ctx.shadowBlur=0;
+    }
+  }
+
+  function easeInOutQuart(t){return t<.5?8*t*t*t*t:1-Math.pow(-2*t+2,4)/2;}
+  const DURATION=1800;
+  let start=null;
+  function animate(ts){
+    if(!start) start=ts;
+    const raw=Math.min((ts-start)/DURATION,1);
+    draw(easeInOutQuart(raw));
+    if(raw<1) requestAnimationFrame(animate);
+    else draw(1);
+  }
+  setTimeout(()=>requestAnimationFrame(animate), 300);
+}
+</script>
+</body>
+</html>
