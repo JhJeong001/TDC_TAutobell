@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>결함 보고서 — QR 로그인 테스트 사이클</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;background:#f0f2f7;color:#1a1a2e;font-size:14px;line-height:1.6;}
+
+    /* ─── 레이아웃 ─── */
+    .page{max-width:1100px;margin:0 auto;padding:32px 16px;}
+
+    /* ─── 커버 헤더 ─── */
+    .cover{background:linear-gradient(135deg,#0f2c5e 0%,#1a4a8a 60%,#1e5ba0 100%);color:#fff;border-radius:12px;padding:36px 40px;margin-bottom:24px;position:relative;overflow:hidden;}
+    .cover::before{content:'';position:absolute;right:-40px;top:-40px;width:220px;height:220px;background:rgba(255,255,255,.05);border-radius:50%;}
+    .cover::after{content:'';position:absolute;right:60px;bottom:-60px;width:160px;height:160px;background:rgba(255,255,255,.04);border-radius:50%;}
+    .cover-tag{display:inline-block;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);border-radius:20px;padding:4px 14px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:14px;}
+    .cover h1{font-size:22px;font-weight:800;margin-bottom:8px;}
+    .cover .sub{font-size:12px;opacity:.75;line-height:1.9;}
+    .cover .meta-grid{display:flex;gap:32px;margin-top:20px;flex-wrap:wrap;}
+    .cover .meta-item{display:flex;flex-direction:column;gap:2px;}
+    .cover .meta-label{font-size:10px;opacity:.6;text-transform:uppercase;letter-spacing:.06em;}
+    .cover .meta-value{font-size:13px;font-weight:600;}
+
+    /* ─── 섹션 타이틀 ─── */
+    .section{background:#fff;border-radius:10px;box-shadow:0 1px 8px rgba(0,0,0,.07);margin-bottom:20px;overflow:hidden;}
+    .section-header{background:#f7f9fc;border-bottom:1px solid #e8ecf3;padding:14px 24px;display:flex;align-items:center;gap:10px;}
+    .section-header .num{background:#1a4a8a;color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0;}
+    .section-header h2{font-size:14px;font-weight:700;color:#0f2c5e;}
+    .section-body{padding:20px 24px;}
+
+    /* ─── 지표 카드 ─── */
+    .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:14px;}
+    .kpi{border-radius:8px;padding:16px 14px;text-align:center;}
+    .kpi .val{font-size:32px;font-weight:900;line-height:1;}
+    .kpi .label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-top:5px;opacity:.75;}
+    .kpi.blue{background:#e8f0fd;color:#1a4a8a;}
+    .kpi.green{background:#e6f9ef;color:#1a7f3c;}
+    .kpi.red{background:#fde8e8;color:#c0392b;}
+    .kpi.yellow{background:#fff8e1;color:#9a6800;}
+    .kpi.purple{background:#f0e8ff;color:#6b2fa0;}
+    .kpi.gray{background:#f0f2f7;color:#4a5568;}
+
+    /* ─── TC 결과 테이블 ─── */
+    table{width:100%;border-collapse:collapse;font-size:13px;}
+    th{background:#f4f6fb;color:#4a5568;font-weight:700;text-align:left;padding:9px 12px;border-bottom:2px solid #dde3ee;}
+    td{padding:9px 12px;border-bottom:1px solid #edf0f7;vertical-align:top;}
+    tr:last-child td{border-bottom:none;}
+    tr:hover td{background:#fafbff;}
+
+    /* ─── 상태 뱃지 ─── */
+    .badge{display:inline-block;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap;}
+    .b-pass{background:#e6f9ef;color:#1a7f3c;}
+    .b-fail{background:#fde8e8;color:#c0392b;}
+    .b-na{background:#edf2fb;color:#2c5fad;}
+    .b-partial{background:#fff8e1;color:#9a6800;}
+    .b-p1{background:#fde8e8;color:#900;}
+    .b-p2{background:#fde8e8;color:#c0392b;}
+    .b-p3{background:#fff8e1;color:#9a6800;}
+    .b-p4{background:#e6f9ef;color:#1a7f3c;}
+    .b-env{background:#edf2fb;color:#2c5fad;}
+    .b-open{background:#fde8e8;color:#c0392b;}
+    .b-pending{background:#fff8e1;color:#9a6800;}
+    .b-na-s{background:#f0f2f7;color:#4a5568;}
+
+    /* ─── 결함 카드 ─── */
+    .defect-card{border:1px solid #e8ecf3;border-radius:8px;margin-bottom:16px;overflow:hidden;}
+    .defect-card:last-child{margin-bottom:0;}
+    .defect-card-header{display:flex;align-items:center;gap:10px;padding:12px 16px;background:#f7f9fc;border-bottom:1px solid #e8ecf3;flex-wrap:wrap;}
+    .defect-id{font-family:monospace;font-weight:800;font-size:13px;color:#0f2c5e;background:#e8f0fd;padding:3px 10px;border-radius:4px;}
+    .defect-card-body{padding:16px;}
+    .field-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+    .field-table td{padding:6px 8px;vertical-align:top;border-bottom:1px solid #f0f2f7;}
+    .field-table tr:last-child td{border-bottom:none;}
+    .field-table .fl{color:#666;font-weight:600;width:130px;white-space:nowrap;}
+    .field-table .fv{color:#333;}
+    .field-table .fv code{background:#f0f2f5;padding:1px 5px;border-radius:3px;font-size:11.5px;}
+    .field-table .fv ul{padding-left:16px;margin:0;}
+    .field-table .fv li{margin-bottom:2px;}
+
+    .risk-box{margin-top:10px;padding:10px 14px;border-radius:6px;font-size:12.5px;line-height:1.7;}
+    .risk-high{background:#fff2f2;border-left:3px solid #c0392b;}
+    .risk-med{background:#fffbe6;border-left:3px solid #f0a500;}
+    .risk-low{background:#edf2fb;border-left:3px solid #2c5fad;}
+    .action-box{margin-top:10px;background:#f0f7ff;border:1px solid #c5daf5;border-radius:6px;padding:10px 14px;font-size:12.5px;line-height:1.7;}
+
+    /* ─── 바 차트 (CSS) ─── */
+    .bar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+    .bar-label{width:130px;font-size:12px;color:#555;font-weight:600;flex-shrink:0;}
+    .bar-track{flex:1;background:#f0f2f7;border-radius:4px;height:16px;overflow:hidden;}
+    .bar-fill{height:100%;border-radius:4px;transition:width .4s;}
+    .bar-pass{background:#2ecc71;}
+    .bar-fail{background:#e74c3c;}
+    .bar-na{background:#7da8e8;}
+    .bar-partial{background:#f0a500;}
+    .bar-count{font-size:12px;font-weight:700;color:#333;width:30px;text-align:right;flex-shrink:0;}
+
+    /* ─── 추천/결론 ─── */
+    .rec-list{list-style:none;}
+    .rec-list li{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid #f0f2f7;}
+    .rec-list li:last-child{border-bottom:none;}
+    .rec-num{background:#1a4a8a;color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0;margin-top:1px;}
+    .rec-content{font-size:13px;line-height:1.7;}
+    .rec-content strong{color:#0f2c5e;}
+
+    .conclusion-box{background:linear-gradient(135deg,#0f2c5e,#1a4a8a);color:#fff;border-radius:8px;padding:20px 24px;}
+    .conclusion-box h3{font-size:14px;font-weight:700;margin-bottom:12px;}
+    .conclusion-box ul{padding-left:18px;font-size:12.5px;line-height:2;}
+
+    .sign-row{display:flex;justify-content:flex-end;gap:32px;padding:16px 24px;border-top:1px solid #e8ecf3;font-size:12px;color:#888;}
+    .sign-item{display:flex;flex-direction:column;align-items:center;gap:4px;}
+    .sign-item strong{color:#333;}
+
+    /* ─── 환경 이슈 테이블 ─── */
+    .env-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+    .env-table th{background:#edf2fb;color:#2c5fad;font-weight:700;text-align:left;padding:8px 12px;border-bottom:2px solid #c5daf5;}
+    .env-table td{padding:8px 12px;border-bottom:1px solid #e8ecf3;vertical-align:top;}
+    .env-table tr:last-child td{border-bottom:none;}
+
+    /* ─── 결함 이력 타임라인 ─── */
+    .timeline{position:relative;padding-left:28px;}
+    .timeline::before{content:'';position:absolute;left:10px;top:6px;bottom:6px;width:2px;background:#dde3ee;}
+    .tl-item{position:relative;margin-bottom:14px;}
+    .tl-dot{position:absolute;left:-23px;top:4px;width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 2px #1a4a8a;}
+    .tl-dot.green{background:#2ecc71;box-shadow:0 0 0 2px #2ecc71;}
+    .tl-dot.red{background:#e74c3c;box-shadow:0 0 0 2px #e74c3c;}
+    .tl-dot.yellow{background:#f0a500;box-shadow:0 0 0 2px #f0a500;}
+    .tl-dot.blue{background:#1a4a8a;box-shadow:0 0 0 2px #1a4a8a;}
+    .tl-date{font-size:10.5px;color:#888;margin-bottom:2px;}
+    .tl-text{font-size:12.5px;color:#333;line-height:1.6;}
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ══════════════════════════════════════════════
+       커버 / 헤더
+  ══════════════════════════════════════════════ -->
+  <div class="cover">
+    <div class="cover-tag">결함 보고서 · Defect Report</div>
+    <h1>QR 로그인 기능 테스트 — 결함 분석 보고서</h1>
+    <div class="sub">
+      프로젝트: T 다이렉트샵 / T World &nbsp;|&nbsp; 대상 모듈: QR 로그인 (auth.skt-id.co.kr/v2/login) &nbsp;|&nbsp; 테스트 사이클: TC_QR_NEW (v1.0)
+    </div>
+    <div class="meta-grid">
+      <div class="meta-item"><span class="meta-label">테스트 수행일</span><span class="meta-value">2026-05-30 ~ 2026-05-31</span></div>
+      <div class="meta-item"><span class="meta-label">보고서 작성일</span><span class="meta-value">2026-06-02</span></div>
+      <div class="meta-item"><span class="meta-label">작성자</span><span class="meta-value">QA 자동화 시스템 (AI 분석)</span></div>
+      <div class="meta-item"><span class="meta-label">버전</span><span class="meta-value">v1.0</span></div>
+      <div class="meta-item"><span class="meta-label">문서 상태</span><span class="meta-value">최종 (Final)</span></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       1. 핵심 지표 요약
+  ══════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="num">1</div>
+      <h2>핵심 지표 요약 (KPI Dashboard)</h2>
+    </div>
+    <div class="section-body">
+      <div class="kpi-grid">
+        <div class="kpi blue">
+          <div class="val">8</div>
+          <div class="label">전체 TC 수</div>
+        </div>
+        <div class="kpi green">
+          <div class="val">1</div>
+          <div class="label">PASS</div>
+        </div>
+        <div class="kpi red">
+          <div class="val">1</div>
+          <div class="label">FAIL</div>
+        </div>
+        <div class="kpi yellow">
+          <div class="val">1</div>
+          <div class="label">PARTIAL NA</div>
+        </div>
+        <div class="kpi gray">
+          <div class="val">5</div>
+          <div class="label">NA (환경)</div>
+        </div>
+        <div class="kpi purple">
+          <div class="val">33%</div>
+          <div class="label">실행 가능 TC 통과율</div>
+        </div>
+        <div class="kpi red">
+          <div class="val">2</div>
+          <div class="label">등록 결함 건수</div>
+        </div>
+        <div class="kpi yellow">
+          <div class="val">1</div>
+          <div class="label">미등록 결함 (검토중)</div>
+        </div>
+      </div>
+      <p style="font-size:11px;color:#888;margin-top:12px;">* 통과율 산정 기준: 환경 이슈(NA 5건) 제외, 실행 가능 TC 3건(05·07·08) 중 PASS 1건 / 전체 실행 대상 8건 포함 시 PASS율 12.5%</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       2. TC 수행 결과
+  ══════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="num">2</div>
+      <h2>TC 수행 결과 (Test Execution Result)</h2>
+    </div>
+    <div class="section-body">
+
+      <div style="margin-bottom:20px;">
+        <p style="font-size:12.5px;color:#555;margin-bottom:14px;">테스트 수행 분포 (실행 가능 3건 기준)</p>
+        <div class="bar-row"><span class="bar-label">PASS</span><div class="bar-track"><div class="bar-fill bar-pass" style="width:33%"></div></div><span class="bar-count">1</span></div>
+        <div class="bar-row"><span class="bar-label">FAIL</span><div class="bar-track"><div class="bar-fill bar-fail" style="width:33%"></div></div><span class="bar-count">1</span></div>
+        <div class="bar-row"><span class="bar-label">PARTIAL NA</span><div class="bar-track"><div class="bar-fill bar-partial" style="width:33%"></div></div><span class="bar-count">1</span></div>
+        <div class="bar-row"><span class="bar-label">NA (환경)</span><div class="bar-track"><div class="bar-fill bar-na" style="width:63%"></div></div><span class="bar-count">5</span></div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width:130px;">TC ID</th>
+            <th>검증 항목</th>
+            <th style="width:90px;">수행 결과</th>
+            <th style="width:90px;">연관 결함</th>
+            <th>비고</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="font-family:monospace;font-weight:700;">TC_QR_NEW_01</td>
+            <td>모바일 T world 앱 QR 스캔 → SSO 세션 생성</td>
+            <td><span class="badge b-na">NA</span></td>
+            <td>—</td>
+            <td style="font-size:11.5px;color:#888;">실물 모바일 기기 미확보</td>
+          </tr>
+          <tr>
+            <td style="font-family:monospace;font-weight:700;">TC_QR_NEW_02</td>
+            <td>QR 스캔 후 T world 앱 인증 성공 → 웹 로그인 완료</td>
+            <td><span class="badge b-na">NA</span></td>
+            <td>—</td>
+            <td style="font-size:11.5px;color:#888;">실물 모바일 기기 미확보</td>
+          </tr>
+          <tr>
+            <td style="font-family:monospace;font-weight:700;">TC_QR_NEW_03</td>
+            <td>QR 스캔 후 앱 인증 실패 처리 검증</td>
+            <td><span class="badge b-na">NA</span></td>
+            <td>—</td>
+            <td style="font-size:11.5px;color:#888;">실물 모바일 기기 미확보</td>
+          </tr>
+          <tr>
+            <td style="font-family:monospace;font-weight:700;">TC_QR_NEW_04</td>
+            <td>QR 코드 만료 후 재생성 흐름 (앱 연동)</td>
+            <td><span class="badge b-na">NA</span></td>
+            <td>—</td>
+            <td style="font-size:11.5px;color:#888;">실물 모바일 기기 미확보</td>
+          </tr>
+          <tr style="background:#fff8f8;">
+            <td style="font-family:monospace;font-weight:700;">TC_QR_NEW_05</td>
+            <td>QR 인증 대기 중 WebSocket 연결 유지 확인</td>
+            <td><span class="badge b-fail">FAIL</span></td>
+            <td><span class="badge b-p2">ISSUE-QR-01</span></td>
+            <td style="font-size:11.5px;color:#c0392b;">WebSocket 미사용, HTTP 폴링으로 구현</td>
+          </tr>
+          <tr>
+            <td style="font-family:monospace;font-weight:700;">TC_QR_NEW_06</td>
+            <td>다중 기기에서 동일 QR 스캔 방지 검증</td>
+            <td><span class="badge b-na">NA</span></td>
+            <td>—</td>
+            <td style="font-size:11.5px;color:#888;">실물 모바일 기기 미확보</td>
+          </tr>
+          <tr style="background:#fffdf0;">
+            <td style="font-family:monospace;font-weight:700;">TC_QR_NEW_07</td>
+            <td>QR 코드 만료 카운트다운 타이머 노출 확인</td>
+            <td><span class="badge b-partial">PARTIAL NA</span></td>
+            <td><span class="badge b-p3">ISSUE-QR-02</span></td>
+            <td style="font-size:11.5px;color:#9a6800;">타이머 텍스트 미노출 (자동화 기준), 수동 재확인 필요</td>
+          </tr>
+          <tr style="background:#f0fff6;">
+            <td style="font-family:monospace;font-weight:700;">TC_QR_NEW_08</td>
+            <td>QR 이미지 정상 렌더링 및 만료 dim 처리 확인</td>
+            <td><span class="badge b-pass">PASS</span></td>
+            <td>—</td>
+            <td style="font-size:11.5px;color:#1a7f3c;">QR 렌더링, 만료 dim, 자동 갱신 모두 정상</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       3. 결함 상세
+  ══════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="num">3</div>
+      <h2>결함 상세 (Defect Details)</h2>
+    </div>
+    <div class="section-body">
+
+      <!-- ISSUE-QR-01 -->
+      <div class="defect-card">
+        <div class="defect-card-header">
+          <span class="defect-id">ISSUE-QR-01</span>
+          <span class="badge b-p2">P2 · High</span>
+          <span class="badge b-fail">TC FAIL</span>
+          <span class="badge b-open">Jira 등록완료</span>
+          <span style="font-weight:700;font-size:13px;color:#0f2c5e;">QR 로그인 — WebSocket 미사용, HTTP 폴링 방식으로 구현됨</span>
+        </div>
+        <div class="defect-card-body">
+          <table class="field-table">
+            <tr><td class="fl">결함 분류</td><td class="fv">기능 결함 (Functional Defect) — 요구사항 불일치</td></tr>
+            <tr><td class="fl">연관 TC</td><td class="fv">TC_QR_NEW_05</td></tr>
+            <tr><td class="fl">발견 환경</td><td class="fv">STG — auth.skt-id.co.kr/v2/login (QR 탭 활성화)</td></tr>
+            <tr><td class="fl">발견 일자</td><td class="fv">2026-05-30 (초기 수행), 2026-05-31 (재수행 재현)</td></tr>
+            <tr><td class="fl">기대 동작</td><td class="fv"><code>wss://</code> WebSocket 프로토콜 연결 유지 확인</td></tr>
+            <tr><td class="fl">실제 동작</td><td class="fv">
+              <ul>
+                <li><code>new WebSocket</code> 생성자 0건 — JS 스크립트 16개 전수 분석</li>
+                <li>폴링 방식: <code>setInterval → POST /qr/verify/device</code> 반복 호출</li>
+                <li>초기 수행(05-30) 및 재수행(05-31) 모두 동일하게 재현</li>
+              </ul>
+            </td></tr>
+            <tr><td class="fl">재현율</td><td class="fv">100% (2/2회 재현, 안정적)</td></tr>
+            <tr><td class="fl">영향 범위</td><td class="fv">QR 로그인 전 흐름 — QR 생성 ~ 인증 대기 구간 전체</td></tr>
+            <tr><td class="fl">Jira 티켓</td><td class="fv">등록 완료 (2026-06-01) &nbsp;<span class="badge b-open">Open</span></td></tr>
+          </table>
+          <div class="risk-box risk-high">
+            <strong>리스크 분석 (High)</strong><br>
+            HTTP 폴링은 기능적으로 동작하나, WebSocket 대비 <strong>불필요한 서버 부하</strong>(매 interval마다 HTTP 요청 발생)와 <strong>응답 지연</strong> 가능성이 있습니다.
+            TC 설계 기준이 WebSocket 사용을 전제로 작성된 경우, 현재 구현은 <strong>요구사항 불일치</strong>에 해당합니다.
+          </div>
+          <div class="action-box">
+            <strong>조치 방향</strong><br>
+            1. 개발팀에 "WebSocket → HTTP 폴링 변경이 의도된 설계 변경인지" 확인 요청<br>
+            2. <strong>의도된 변경이라면:</strong> TC_QR_NEW_05 기대 결과 수정 → 이슈 Close<br>
+            3. <strong>미확인/설계 오류라면:</strong> WebSocket 방식 구현 수정 요청 → P1 상향 검토
+          </div>
+        </div>
+      </div>
+
+      <!-- ISSUE-QR-02 -->
+      <div class="defect-card">
+        <div class="defect-card-header">
+          <span class="defect-id">ISSUE-QR-02</span>
+          <span class="badge b-p3">P3 · Medium</span>
+          <span class="badge b-partial">PARTIAL NA</span>
+          <span class="badge b-pending">Jira 미등록</span>
+          <span style="font-weight:700;font-size:13px;color:#0f2c5e;">QR 만료 카운트다운 타이머 텍스트(MM:SS) 미노출</span>
+        </div>
+        <div class="defect-card-body">
+          <table class="field-table">
+            <tr><td class="fl">결함 분류</td><td class="fv">UI/UX 결함 — 정보 미노출 (미확정, 수동 재확인 필요)</td></tr>
+            <tr><td class="fl">연관 TC</td><td class="fv">TC_QR_NEW_07 (Step 2 구간 — 자동화 범위 내)</td></tr>
+            <tr><td class="fl">발견 환경</td><td class="fv">STG — auth.skt-id.co.kr/v2/login (QR 탭, QR 만료 대기 상태)</td></tr>
+            <tr><td class="fl">발견 일자</td><td class="fv">2026-05-31</td></tr>
+            <tr><td class="fl">기대 동작</td><td class="fv">QR 코드 만료까지 남은 시간을 MM:SS 형식으로 화면에 표시</td></tr>
+            <tr><td class="fl">실제 동작</td><td class="fv">
+              <ul>
+                <li>페이지 내 MM:SS 패턴 텍스트 <strong>미노출</strong></li>
+                <li>QR 코드 렌더링(<code>.qrcode-img</code>) 정상 ✅</li>
+                <li>만료 시 dim 처리(<code>.dimmed</code> 클래스) 정상 ✅</li>
+                <li>만료 후 자동 갱신(<code>clearInterval</code> 후 재요청 패턴) 정상 ✅</li>
+              </ul>
+            </td></tr>
+            <tr><td class="fl">추정 원인</td><td class="fv">JS 렌더링 시점 차이 — 자동화 스크립트 실행 타이밍에 타이머가 아직 DOM에 삽입되지 않았을 가능성 (환경 이슈 복합 가능성)</td></tr>
+            <tr><td class="fl">재현율</td><td class="fv">자동화 기준 2/2 미노출 / 수동 육안 확인 미실시 — 미확정</td></tr>
+            <tr><td class="fl">영향 범위</td><td class="fv">QR 만료 타이머 노출 — UX 혼선 가능성 (서비스 중단 수준 아님)</td></tr>
+            <tr><td class="fl">Jira 티켓</td><td class="fv">미등록 &nbsp;<span class="badge b-pending">수동 확인 후 등록 예정</span></td></tr>
+          </table>
+          <div class="risk-box risk-med">
+            <strong>리스크 분석 (Medium)</strong><br>
+            타이머가 실제로 미노출이라면 사용자가 QR 코드 유효시간을 알 수 없어 <strong>UX 혼선</strong> 발생 가능.
+            다만 QR 만료·갱신 로직 자체는 정상이므로 <strong>서비스 중단 수준의 결함은 아닙니다.</strong>
+          </div>
+          <div class="action-box">
+            <strong>조치 방향</strong><br>
+            1. <strong>수동 테스트 우선:</strong> 실제 브라우저에서 QR 탭 진입 후 타이머 텍스트 육안 확인<br>
+            2. 미노출 재현 시: 프론트엔드 버그로 Jira 등록 (P3 유지)<br>
+            3. 정상 노출 확인 시: 자동화 타이밍 이슈 → TC 검증 방법 조정 후 Close
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       4. 환경 이슈 (NA 5건)
+  ══════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="num">4</div>
+      <h2>환경 이슈 — 테스트 실행 불가 TC (NA × 5건)</h2>
+    </div>
+    <div class="section-body">
+      <p style="font-size:12.5px;color:#555;margin-bottom:14px;">제품 결함이 아닌 테스트 환경 한계(실물 모바일 기기 미확보)로 인한 NA 처리. 추후 환경 구축 시 재수행 필요.</p>
+      <table class="env-table">
+        <thead>
+          <tr><th>TC ID</th><th>검증 항목</th><th>NA 사유</th><th>권장 조치</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="font-family:monospace;font-weight:700;">TC_QR_NEW_01</td>
+            <td>모바일 T world 앱 QR 스캔 → SSO 세션 생성</td>
+            <td>실물 기기 인증 필요</td>
+            <td>모바일 기기 또는 에뮬레이터 환경 구축 후 재수행</td>
+          </tr>
+          <tr>
+            <td style="font-family:monospace;font-weight:700;">TC_QR_NEW_02</td>
+            <td>QR 스캔 후 T world 앱 인증 성공 → 웹 로그인</td>
+            <td>실물 기기 인증 필요</td>
+            <td>모바일 기기 또는 에뮬레이터 환경 구축 후 재수행</td>
+          </tr>
+          <tr>
+            <td style="font-family:monospace;font-weight:700;">TC_QR_NEW_03</td>
+            <td>QR 스캔 후 앱 인증 실패 처리 검증</td>
+            <td>실물 기기 인증 필요</td>
+            <td>모바일 기기 또는 에뮬레이터 환경 구축 후 재수행</td>
+          </tr>
+          <tr>
+            <td style="font-family:monospace;font-weight:700;">TC_QR_NEW_04</td>
+            <td>QR 코드 만료 후 재생성 흐름 (앱 연동)</td>
+            <td>실물 기기 인증 필요</td>
+            <td>모바일 기기 또는 에뮬레이터 환경 구축 후 재수행</td>
+          </tr>
+          <tr>
+            <td style="font-family:monospace;font-weight:700;">TC_QR_NEW_06</td>
+            <td>다중 기기에서 동일 QR 스캔 방지 검증</td>
+            <td>실물 기기 2대 이상 필요</td>
+            <td>다중 기기 테스트 환경 구축 또는 목(Mock) API 활용 검토</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       5. 결함 메트릭 분석
+  ══════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="num">5</div>
+      <h2>결함 메트릭 분석 (Defect Metrics)</h2>
+    </div>
+    <div class="section-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;flex-wrap:wrap;">
+
+        <div>
+          <p style="font-size:12px;font-weight:700;color:#555;margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em;">우선순위 분포</p>
+          <div class="bar-row"><span class="bar-label">P1 · Critical</span><div class="bar-track"><div class="bar-fill bar-fail" style="width:0%"></div></div><span class="bar-count">0</span></div>
+          <div class="bar-row"><span class="bar-label">P2 · High</span><div class="bar-track"><div class="bar-fill bar-fail" style="width:50%"></div></div><span class="bar-count">1</span></div>
+          <div class="bar-row"><span class="bar-label">P3 · Medium</span><div class="bar-track"><div class="bar-fill bar-partial" style="width:50%"></div></div><span class="bar-count">1</span></div>
+          <div class="bar-row"><span class="bar-label">P4 · Low</span><div class="bar-track"><div class="bar-fill bar-pass" style="width:0%"></div></div><span class="bar-count">0</span></div>
+        </div>
+
+        <div>
+          <p style="font-size:12px;font-weight:700;color:#555;margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em;">결함 유형 분포</p>
+          <div class="bar-row"><span class="bar-label">기능 결함</span><div class="bar-track"><div class="bar-fill bar-fail" style="width:50%"></div></div><span class="bar-count">1</span></div>
+          <div class="bar-row"><span class="bar-label">UI/UX 결함</span><div class="bar-track"><div class="bar-fill bar-partial" style="width:50%"></div></div><span class="bar-count">1</span></div>
+          <div class="bar-row"><span class="bar-label">환경 이슈</span><div class="bar-track"><div class="bar-fill bar-na" style="width:100%"></div></div><span class="bar-count">5</span></div>
+        </div>
+
+        <div>
+          <p style="font-size:12px;font-weight:700;color:#555;margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em;">결함 처리 현황</p>
+          <div class="bar-row"><span class="bar-label">Jira 등록완료</span><div class="bar-track"><div class="bar-fill bar-pass" style="width:50%"></div></div><span class="bar-count">1</span></div>
+          <div class="bar-row"><span class="bar-label">미등록 (검토중)</span><div class="bar-track"><div class="bar-fill bar-partial" style="width:50%"></div></div><span class="bar-count">1</span></div>
+          <div class="bar-row"><span class="bar-label">환경이슈 미정</span><div class="bar-track"><div class="bar-fill bar-na" style="width:100%"></div></div><span class="bar-count">5</span></div>
+        </div>
+
+        <div>
+          <p style="font-size:12px;font-weight:700;color:#555;margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em;">테스트 커버리지 현황</p>
+          <table style="font-size:12px;width:100%;border-collapse:collapse;">
+            <tr><td style="padding:5px 0;color:#555;width:160px;">전체 TC</td><td style="font-weight:700;">8건</td></tr>
+            <tr><td style="padding:5px 0;color:#555;">실행 가능 TC</td><td style="font-weight:700;">3건 (37.5%)</td></tr>
+            <tr><td style="padding:5px 0;color:#555;">환경 이슈 NA</td><td style="font-weight:700;">5건 (62.5%)</td></tr>
+            <tr><td style="padding:5px 0;color:#555;">실행 TC 통과율</td><td style="font-weight:700;color:#1a7f3c;">33.3% (1/3)</td></tr>
+            <tr><td style="padding:5px 0;color:#555;">결함 발견율</td><td style="font-weight:700;color:#c0392b;">66.7% (2/3)</td></tr>
+            <tr><td style="padding:5px 0;color:#555;">결함 밀도</td><td style="font-weight:700;">0.25건/TC (2건/8TC)</td></tr>
+          </table>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       6. 결함 이력 타임라인
+  ══════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="num">6</div>
+      <h2>결함 발견 및 처리 타임라인</h2>
+    </div>
+    <div class="section-body">
+      <div class="timeline">
+        <div class="tl-item">
+          <div class="tl-dot blue"></div>
+          <div class="tl-date">2026-05-30 (1차 수행)</div>
+          <div class="tl-text">TC_QR_NEW 사이클 1차 수행 — TC_QR_NEW_05 FAIL, TC_QR_NEW_07 PARTIAL NA, NA 5건 도출</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-dot yellow"></div>
+          <div class="tl-date">2026-05-31 (재수행)</div>
+          <div class="tl-text">TC_QR_NEW 사이클 재수행 — ISSUE-QR-01(WebSocket), ISSUE-QR-02(타이머) 동일 결과 재현 확인</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-dot green"></div>
+          <div class="tl-date">2026-06-01</div>
+          <div class="tl-text">ISSUE-QR-01 (WebSocket 미사용, P2 High) Jira 등록 완료</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-dot red"></div>
+          <div class="tl-date">2026-06-02 (현재)</div>
+          <div class="tl-text">ISSUE-QR-02 (타이머 미노출, P3 Medium) 수동 재확인 미실시 — Jira 등록 보류 중 / 결함 보고서 표준화 작성</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       7. 권고 사항
+  ══════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="num">7</div>
+      <h2>권고 사항 (Recommendations)</h2>
+    </div>
+    <div class="section-body">
+      <ul class="rec-list">
+        <li>
+          <div class="rec-num">1</div>
+          <div class="rec-content">
+            <strong>[즉시] ISSUE-QR-01 개발팀 확인 요청</strong><br>
+            WebSocket → HTTP 폴링 변경이 의도된 설계 변경인지 개발팀 확인. 의도되지 않은 변경이라면 P1 상향 검토. TC_QR_NEW_05 기대 결과 문서 업데이트 연동 필요.
+          </div>
+        </li>
+        <li>
+          <div class="rec-num">2</div>
+          <div class="rec-content">
+            <strong>[단기] ISSUE-QR-02 수동 재확인 후 Jira 등록</strong><br>
+            실제 브라우저에서 QR 탭 진입 후 타이머 텍스트 육안 확인. 결과에 따라 Jira 등록(P3) 또는 자동화 TC 조정 후 Close 처리.
+          </div>
+        </li>
+        <li>
+          <div class="rec-num">3</div>
+          <div class="rec-content">
+            <strong>[중기] 모바일 테스트 환경 구축</strong><br>
+            NA 5건(TC_QR_NEW_01~04, 06)은 실물 모바일 기기 미확보로 인한 환경 이슈. 실기기 테스트 환경 또는 에뮬레이터 연동 방안 검토 필요. 해당 TC는 QR 로그인의 핵심 시나리오(앱 연동)를 검증하므로 커버리지 확보 필요.
+          </div>
+        </li>
+        <li>
+          <div class="rec-num">4</div>
+          <div class="rec-content">
+            <strong>[지속] 결함 메트릭 모니터링</strong><br>
+            현재 실행 가능 TC 기준 결함 발견율 66.7% — 높은 수치. QR 로그인 기능의 추가 TC 설계 및 회귀 테스트 자동화 강화 권장.
+          </div>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       결론
+  ══════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-body">
+      <div class="conclusion-box">
+        <h3>결론 및 테스트 사이클 판정</h3>
+        <ul>
+          <li>실행 가능 TC 3건 중 PASS 1건(33%) — <strong>현재 상태로 배포 권고 불가</strong></li>
+          <li>ISSUE-QR-01(WebSocket) 미해결 시 QR 로그인 전 흐름 요구사항 불일치 상태 지속</li>
+          <li>NA 5건(62.5%) 모바일 환경 테스트 미수행으로 실기기 QR 스캔 흐름 검증 없음</li>
+          <li>ISSUE-QR-02 수동 확인 완료 후 최종 결함 수 확정 필요</li>
+          <li>조치 완료 후 재수행(Retest) → 통과율 100% 달성 시 배포 검토 가능</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 서명란 -->
+  <div class="sign-row">
+    <div class="sign-item">
+      <span>작성</span>
+      <strong>QA 자동화 시스템</strong>
+    </div>
+    <div class="sign-item">
+      <span>검토</span>
+      <strong>정재형</strong>
+    </div>
+    <div class="sign-item">
+      <span>승인</span>
+      <strong>______</strong>
+    </div>
+    <div class="sign-item">
+      <span>작성일</span>
+      <strong>2026-06-02</strong>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
